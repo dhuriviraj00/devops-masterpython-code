@@ -1,0 +1,64 @@
+pipeline {
+    agent any
+
+    environment {
+        registry = 'dockervk23/pythonapp'
+        registryCredential = 'docker-id'
+    }
+
+    stages {
+        stage('Hello') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+        
+        stage('Git Checkout') {
+            steps {
+                checkout([$class: 'GitSCM', 
+                    branches: [[name: '*/master']], 
+                    doGenerateSubmoduleConfigurations: false, 
+                    extensions: [], 
+                    userRemoteConfigs: [[
+                        credentialsId: 'github-id', 
+                        url: 'https://github.com/dhuriviraj00/devops-masterpython-code.git'
+                    ]]
+                ])
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    dockerImage = docker.build("${registry}")
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    docker.withRegistry('', registryCredential) {
+                        dockerImage.push('latest')
+                    }
+                }
+            }
+        }
+
+        stage('Clean Up') {
+            steps {
+                script {
+                    dockerImage.inside {
+                        sh 'docker rmi ${registry}:latest'
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
